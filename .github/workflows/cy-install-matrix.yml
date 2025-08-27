@@ -49,6 +49,8 @@ jobs:
 
       # THEN: Validate the installation
       - name: Validate Cypress Installation
+        env:
+          DEBUG: cypress:cli
         run: |
           npx cypress verify
 
