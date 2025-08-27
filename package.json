@@ -4,7 +4,7 @@
   "main": "",
   "type": "module",
   "scripts": {
-    "cy:install": "node ./CypressInstaller.js --clean-install --debug && npx --yes cypress verify"
+    "cy:install": "node ./CypressInstaller.js --clean-install --debug"
   },
   "keywords": [],
   "author": "",
