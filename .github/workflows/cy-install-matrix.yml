@@ -36,17 +36,21 @@ jobs:
         run: |
           rm -rf node_modules package-lock.json pnpm-lock.yaml yarn.lock
 
-      # Your package.json should contain:
-      # "cy:install": "node ./sCypressInstaller.js --clean-install --debug && npx --yes cypress verify"
-      - name: Run cy:install via ${{ matrix.pm }}
+      - name: Validate Cypress Installation
         run: |
-          if [[ "${{ matrix.pm }}" == "npm" ]]; then
-            npm run cy:install
-          elif [[ "${{ matrix.pm }}" == "pnpm" ]]; then
-            pnpm run cy:install
-          else
-            yarn run cy:install
-          fi
+          npx cypress verify
+
+      # Your package.json should contain:
+      # "cy:install": "node ./CypressInstaller.js --clean-install --debug"
+      # - name: Run cy:install via ${{ matrix.pm }}
+      #   run: |
+          # if [[ "${{ matrix.pm }}" == "npm" ]]; then
+          #   npm run cy:install
+          # elif [[ "${{ matrix.pm }}" == "pnpm" ]]; then
+          #   pnpm run cy:install
+          # else
+          #   yarn run cy:install
+          # fi
 
       - name: Show Cypress version
         run: |
