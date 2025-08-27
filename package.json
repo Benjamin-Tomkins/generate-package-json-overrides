@@ -2,6 +2,7 @@
   "name": "cy-test",
   "version": "1.0.0",
   "main": "",
+  "type": "module",
   "scripts": {
     "cy:install": "node ./CypressInstaller.js --clean-install --debug && npx --yes cypress verify"
   },
