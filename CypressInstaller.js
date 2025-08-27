@@ -39,9 +39,12 @@ function detectPackageManager() {
 }
 
 function getInstallArgs(pm, dbg) {
+function getInstallArgs(pm, dbg) {
   switch (pm) {
-    case 'npm':  return dbg ? ['install', '--verbose'] : ['install', '--silent'];
-    case 'pnpm': return dbg ? ['install', '--reporter', 'default'] : ['install', '--reporter', 'silent'];
+    case 'npm':  return dbg ? ['install', '--verbose', '--no-fund'] : ['install', '--silent', '--no-fund'];
+    case 'pnpm': return dbg 
+      ? ['install', '--reporter', 'default', '--ignore-scripts=false'] 
+      : ['install', '--reporter', 'silent', '--ignore-scripts=false'];
     case 'yarn': return dbg ? ['install', '--verbose'] : ['install', '--silent'];
     default:     return ['install'];
   }
