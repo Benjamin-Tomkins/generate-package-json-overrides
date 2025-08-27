@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "",
   "scripts": {
-    "cy:install": "node ./installer.mjs && npx cypress verify"
+    "cy:install": "node ./CypressInstaller.js --clean-install --debug && npx cypress verify"
   },
   "keywords": [],
   "author": "",
