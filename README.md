@@ -1,12 +1,12 @@
-# 1. In your scaffold project
+#### 1. In your scaffold project
 node generate-overrides.js
 
-# 2. In a new project
+#### 2. In a new project
 rm -rf node_modules package-lock.json
 
-# 3. Make sure the main dependencies and devDependencies are added
+#### 3. Make sure the main dependencies and devDependencies are added
 
-# 4. Copy the generated JSON content to a new project's package.json
+#### 4. Copy the generated JSON content to a new project's package.json
 
-# 5. Install the modules
+#### 5. Install the modules
 `npm install` or `pnpm install` or `yarn install`
