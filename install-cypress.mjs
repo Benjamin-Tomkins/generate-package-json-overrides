@@ -1,7 +1,12 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
 import { platform, arch } from 'node:os';
-import { resolve } from 'node:path';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// Get the directory name of the current module
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Fixed nexus domain
 const NEXUS_DOMAIN = 'nexus.company.com'; // Replace with your actual domain
@@ -67,7 +72,7 @@ const getInstallInstructions = (pm) => {
 
 try {
   const url = getUrl();
-  const certPath = resolve('./certificate.pem');
+  const certPath = resolve(__dirname, './certificate.pem');
   
   // Build environment variables
   const env = {
