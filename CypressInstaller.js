@@ -42,8 +42,8 @@ function getInstallArgs(pm, dbg) {
   switch (pm) {
     case 'npm':  return dbg ? ['install', '--verbose', '--no-fund'] : ['install', '--silent', '--no-fund'];
     case 'pnpm': return dbg 
-      ? ['install', '--reporter', 'default', '--ignore-scripts=false'] 
-      : ['install', '--reporter', 'silent', '--ignore-scripts=false'];
+      ? ['install', '--reporter', 'default', '--config.enable-scripts=true'] 
+      : ['install', '--reporter', 'silent', '--config.enable-scripts=true'];
     case 'yarn': return dbg ? ['install', '--verbose'] : ['install', '--silent'];
     default:     return ['install'];
   }
