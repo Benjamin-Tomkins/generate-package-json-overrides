@@ -1,24 +1,11 @@
 #!/usr/bin/env node
 /**
  * Cypress Binary Bootstrap (npm/pnpm/yarn, No Shell, Cross-Platform)
- * -----------------------------------------------------------------------------
- * WHAT IT DOES
- *  - Detects the invoking package manager (npm/pnpm/yarn) and reuses it.
- *  - Injects NODE_EXTRA_CA_CERTS and CYPRESS_INSTALL_BINARY (unless --clean-install).
- *  - Spawns: node <pm-cli.js> install   (no shell, Windows-safe).
- *  - Optional --debug for verbose logs; optional --clean-install to skip env injection.
- *
- * REQUIRED (unless --clean-install is used)
- *   NEXUS_USERNAME, NEXUS_PASSWORD
- *
- * CONFIG
- *   NEXUS_DOMAIN   e.g. "nexus.company.com:8081"
- *   CERT_FILENAME  PEM bundle next to this script
- *
- * NOTES
- *  - Redacts creds from any console output.
- *  - If you also run this as a lifecycle hook (e.g., preinstall), beware of recursion.
- *    This script is intended to be called as a standalone script: `* run cy:install`.
+ * - Auto-detects the invoking package manager and reuses it.
+ * - Flags:
+ *     --clean-install  : do NOT inject binary URL or certs (public defaults)
+ *     --debug|-d       : verbose logs
+ * - Always injects: CYPRESS_CRASH_REPORTS=0, CYPRESS_COMMERCIAL_RECOMMENDATIONS=0
  */
 
 import { spawn } from 'node:child_process';
@@ -29,35 +16,28 @@ import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 
-// ── Paths ─────────────────────────────────────────────────────────────────────
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = dirname(__filename);
 
-// ── Config ────────────────────────────────────────────────────────────────────
-const NEXUS_DOMAIN  = 'nexus.company.com'; // include port if needed, e.g. example:8081
+// If you ever need private binary mode again, set these and call WITHOUT --clean-install
+const NEXUS_DOMAIN  = 'nexus.company.com'; // include port if needed
 const CERT_FILENAME = 'certificate.pem';
 
-// ── CLI Flags ─────────────────────────────────────────────────────────────────
-const argv = process.argv.slice(2);
+const argv  = process.argv.slice(2);
 const DEBUG = argv.includes('--debug') || argv.includes('-d');
-const CLEAN = argv.includes('--clean-install'); // install without any env injection
+const CLEAN = argv.includes('--clean-install');
 
-// ── PM Detection ──────────────────────────────────────────────────────────────
 function detectPackageManager() {
-  // Most reliable: npm_config_user_agent e.g. "pnpm/9.6.0 npm/? node/v20.11.1 ..."
   const ua = process.env.npm_config_user_agent || '';
-  if (/^pnpm\//i.test(ua) || /pnpm/i.test(ua)) return 'pnpm';
-  if (/^yarn\//i.test(ua) || /yarn/i.test(ua)) return 'yarn';
-  if (/^npm\//i.test(ua)  || /npm/i.test(ua))  return 'npm';
-
-  // Fallback: npm_execpath often points to a JS file containing "pnpm" or "yarn"
+  if (/pnpm/i.test(ua)) return 'pnpm';
+  if (/yarn/i.test(ua)) return 'yarn';
+  if (/npm/i.test(ua))  return 'npm';
   const execpath = (process.env.npm_execpath || '').toLowerCase();
   if (execpath.includes('pnpm')) return 'pnpm';
   if (execpath.includes('yarn')) return 'yarn';
-  return 'npm'; // safe default
+  return 'npm';
 }
 
-// ── PM Args (quiet by default; verbose in --debug) ────────────────────────────
 function getInstallArgs(pm, dbg) {
   switch (pm) {
     case 'npm':  return dbg ? ['install', '--verbose'] : ['install', '--silent'];
@@ -67,10 +47,9 @@ function getInstallArgs(pm, dbg) {
   }
 }
 
-// ── Resolve PM CLI entrypoint (JS file) ───────────────────────────────────────
 function resolvePmCli(pm) {
   const isJs = p => /\.([cm]?js)$/.test(p || '');
-  const fromEnv = process.env.npm_execpath; // often already the JS CLI for pnpm/yarn
+  const fromEnv = process.env.npm_execpath;
   const nodeDir = dirname(process.execPath);
 
   const attempts = [];
@@ -88,16 +67,12 @@ function resolvePmCli(pm) {
     );
   } else if (pm === 'yarn') {
     attempts.push(
-      // Yarn classic
       () => require.resolve('yarn/bin/yarn.js'),
       () => require.resolve('yarn/bin/yarn.cjs'),
-      // Yarn Berry in-repo .yarn/releases
       () => {
         const releases = join(process.cwd(), '.yarn', 'releases');
         if (!existsSync(releases)) throw new Error('no .yarn/releases');
-        const files = readdirSync(releases)
-          .filter(f => f.startsWith('yarn-') && f.endsWith('.cjs'))
-          .sort().reverse();
+        const files = readdirSync(releases).filter(f => f.startsWith('yarn-') && f.endsWith('.cjs')).sort().reverse();
         if (!files.length) throw new Error('no yarn-*.cjs in .yarn/releases');
         return join(releases, files[0]);
       }
@@ -108,12 +83,11 @@ function resolvePmCli(pm) {
     try {
       const p = typeof cand === 'function' ? cand() : cand;
       if (p && existsSync(p)) return p;
-    } catch { /* try next */ }
+    } catch { /* next */ }
   }
   return null;
 }
 
-// ── Redaction + Env Sanitize ──────────────────────────────────────────────────
 function redactFactory(username, password) {
   return (s) => {
     let out = s.toString().replace(/https?:\/\/[^/\s]+:[^@/\s]+@/g, 'https://***:***@');
@@ -135,7 +109,6 @@ function sanitizeEnv(envIn) {
   return out;
 }
 
-// ── Platform → binary path on Nexus ───────────────────────────────────────────
 function getBinaryPath() {
   const os = platform();
   const a  = arch();
@@ -149,88 +122,71 @@ function getBinaryPath() {
   throw new Error(`Unsupported platform: ${os} ${a}`);
 }
 
-// ── Main ──────────────────────────────────────────────────────────────────────
 (async () => {
   try {
-    const pm = detectPackageManager();
-    const pmCli = resolvePmCli(pm);
-    const nodeExec = process.env.npm_node_execpath || process.execPath;
-    const args = getInstallArgs(pm, DEBUG);
+    const pm      = detectPackageManager();
+    const pmCli   = resolvePmCli(pm);
+    const nodeExe = process.env.npm_node_execpath || process.execPath;
+    const args    = getInstallArgs(pm, DEBUG);
 
     if (!pmCli) {
       console.error(`Could not resolve a JS CLI entrypoint for ${pm}.`);
-      console.error(`Ensure ${pm} is installed and resolvable (no shell used).`);
       process.exit(1);
     }
 
-    // Build child environment
     const childEnv = sanitizeEnv({ ...process.env });
-    let redact = (s) => s; // default no-op
 
-    if (!CLEAN) {
-      // Require creds and cert only in injected mode
+    // Always set these two Cypress flags (clean or injected)
+    childEnv.CYPRESS_CRASH_REPORTS = '0';
+    childEnv.CYPRESS_COMMERCIAL_RECOMMENDATIONS = '0';
+
+    let redact = (s) => s;
+
+    if (CLEAN) {
+      // Clean/public: ensure no private binary or PEM is injected
+      delete childEnv.NODE_EXTRA_CA_CERTS;
+      delete childEnv.CYPRESS_INSTALL_BINARY;
+    } else {
+      // Injected/private mode (not used in your Actions run, but supported)
       const certPath = resolve(__dirname, CERT_FILENAME);
       if (!existsSync(certPath)) {
         console.error(`Certificate required but not found: ${certPath}`);
-        console.error(`Update CERT_FILENAME or place the PEM bundle next to this script.`);
         process.exit(1);
       }
       const user = process.env.NEXUS_USERNAME;
       const pass = process.env.NEXUS_PASSWORD;
       if (!user || !pass) {
-        console.error('Missing required environment variables:');
-        if (!user) console.error('  NEXUS_USERNAME - Nexus authentication username/token');
-        if (!pass) console.error('  NEXUS_PASSWORD - Nexus authentication password/token');
+        console.error('Missing NEXUS_USERNAME / NEXUS_PASSWORD');
         process.exit(1);
       }
-
       const binaryUrl = new URL(`https://${NEXUS_DOMAIN}${getBinaryPath()}`);
       binaryUrl.username = encodeURIComponent(user);
       binaryUrl.password = encodeURIComponent(pass);
-
-      Object.assign(childEnv, {
-        NODE_EXTRA_CA_CERTS: certPath,
-        CYPRESS_INSTALL_BINARY: binaryUrl.toString(),
-        CYPRESS_CRASH_REPORTS: '0',
-        CYPRESS_COMMERCIAL_RECOMMENDATIONS: '0',
-      });
-
+      childEnv.NODE_EXTRA_CA_CERTS = certPath;
+      childEnv.CYPRESS_INSTALL_BINARY = binaryUrl.toString();
       redact = redactFactory(user, pass);
-    } else {
-      // Explicitly remove any preexisting Cypress/NODE cert vars for a clean test
-      delete childEnv.NODE_EXTRA_CA_CERTS;
-      delete childEnv.CYPRESS_INSTALL_BINARY;
-      delete childEnv.CYPRESS_CRASH_REPORTS;
-      delete childEnv.CYPRESS_COMMERCIAL_RECOMMENDATIONS;
     }
 
-    // Debug banner
     if (DEBUG) {
       console.log(`[debug] pm=${pm}`);
-      console.log(`[debug] node=${nodeExec}`);
+      console.log(`[debug] node=${nodeExe}`);
       console.log(`[debug] pmCli=${pmCli}`);
       console.log(`[debug] pm args=${args.join(' ')}`);
-      if (!CLEAN) {
-        console.log(`[debug] cert=${childEnv.NODE_EXTRA_CA_CERTS}`);
-        console.log(`[debug] cypress url (redacted): https://${NEXUS_DOMAIN}${getBinaryPath()}`);
-      } else {
-        console.log('[debug] clean-install: Cypress env injection disabled');
-      }
+      console.log(`[debug] clean-install=${CLEAN}`);
     } else {
       console.log(`Running: ${pm} ${args.join(' ')}${CLEAN ? ' (clean-install)' : ''}`);
     }
 
-    // Spawn: node <pm-cli.js> install
-    const child = spawn(nodeExec, [pmCli, ...args], {
+    const child = spawn(nodeExe, [pmCli, ...args], {
       env: childEnv,
-      stdio: ['ignore', 'pipe', 'pipe'], // pipe to allow redaction
+      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     });
 
-    if (DEBUG) child.stdout.on('data', (d) => process.stdout.write(redact(d)));
-    child.stderr.on('data', (d) => process.stderr.write(redact(d)));
+    if (DEBUG) child.stdout.on('data', d => process.stdout.write(redact(d)));
+    child.stderr.on('data', d => process.stderr.write(redact(d)));
 
-    child.on('error', (err) => {
+    child.on('error', err => {
       console.error(`Failed to start ${pm}: ${err.message}`);
       process.exit(1);
     });
