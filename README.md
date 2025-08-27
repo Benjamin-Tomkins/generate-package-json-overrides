@@ -23,3 +23,21 @@ rm -rf node_modules package-lock.json
   }
 }
 ```
+
+```
+# Default: npm, quiet
+NEXUS_USERNAME='alice' NEXUS_PASSWORD='s3cr3t' node install-cypress.mjs
+
+# npm, verbose debug
+NEXUS_USERNAME='alice' NEXUS_PASSWORD='s3cr3t' node install-cypress.mjs --debug
+
+# pnpm (positional)
+NEXUS_USERNAME='alice' NEXUS_PASSWORD='s3cr3t' node install-cypress.mjs pnpm
+
+# pnpm (flag) + debug
+NEXUS_USERNAME='alice' NEXUS_PASSWORD='s3cr3t' node install-cypress.mjs --pm pnpm -d
+
+# yarn
+NEXUS_USERNAME='alice' NEXUS_PASSWORD='s3cr3t' node install-cypress.mjs yarn
+
+```
