@@ -39,7 +39,6 @@ function detectPackageManager() {
 }
 
 function getInstallArgs(pm, dbg) {
-function getInstallArgs(pm, dbg) {
   switch (pm) {
     case 'npm':  return dbg ? ['install', '--verbose', '--no-fund'] : ['install', '--silent', '--no-fund'];
     case 'pnpm': return dbg 
