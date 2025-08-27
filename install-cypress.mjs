@@ -53,6 +53,18 @@ const getInstallArgs = (pm) => {
   }
 };
 
+// Get installation instructions for missing package managers
+const getInstallInstructions = (pm) => {
+  switch (pm) {
+    case 'pnpm':
+      return 'npm install -g pnpm';
+    case 'yarn':
+      return 'npm install -g yarn';
+    default:
+      return `Install ${pm} globally`;
+  }
+};
+
 try {
   const url = getUrl();
   const certPath = resolve('./certificate.pem');
@@ -82,7 +94,8 @@ try {
   
   child.on('error', (error) => {
     console.error(`Failed to start ${packageManager}: ${error.message}`);
-    console.error(`Make sure ${packageManager} is installed and available in PATH`);
+    console.error(`${packageManager} is not installed or not available in PATH`);
+    console.error(`To install ${packageManager}, run: ${getInstallInstructions(packageManager)}`);
     process.exit(1);
   });
   
