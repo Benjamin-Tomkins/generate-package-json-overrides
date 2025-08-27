@@ -138,9 +138,14 @@ function getBinaryPath() {
 
     const childEnv = sanitizeEnv({ ...process.env });
 
-    // Always set these two Cypress flags (clean or injected)
+    // Always set these Cypress flags
     childEnv.CYPRESS_CRASH_REPORTS = '0';
     childEnv.CYPRESS_COMMERCIAL_RECOMMENDATIONS = '0';
+
+    // Suppress npm funding messages
+    if (pm === 'npm') {
+      childEnv.npm_config_fund = 'false';
+    }
 
     let redact = (s) => s;
 
